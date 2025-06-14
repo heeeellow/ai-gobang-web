@@ -1,241 +1,87 @@
 
-
-# 前端框架详细设计 
 ---
+
+# Gobang 五子棋对战平台
+
 ## 项目简介
 
-本项目为**网页五子棋在线对战系统**前端，基于 `Vue3` + `Vite` + `Tailwind CSS` 实现，配合 RESTful API 及 WebSocket 实现实时房间、棋局与聊天。
-支持注册/登录、游戏大厅、对局房间、观战、实时聊天等功能，适配通用后端服务。
+本项目是一个支持**在线对战**和**人机对战**的五子棋平台，前端基于 Vue3 + TailwindCSS 实现，后端使用 C++ 手写 HTTP 和 WebSocket 服务，并结合 MySQL 实现用户、房间等数据管理。支持大厅房间、实时聊天、AI 对弈（极大极小+棋型评估），可适配多种部署环境。
+
+---
+
+## 目录结构
+
+```
+ai-gobang-web/
+├── gobang-server/           # C++ 后端源码 (HTTP/WebSocket/AI)
+│   ├── main.cpp
+│   ├── CMakeLists.txt
+│   ├── db/                  #数据库封装
+│   ├── gobang/              #核心算法
+│   ├── model/               #数据管理
+│   ├── service/             #功能封装
+│   ├── network/             #网络与前端接口
+│   ├── utils/               #工具封装
+│  
+├── gobang-web/          # 前端 Vue3 项目
+│   ├── src/
+│   │   ├── pages/
+│   │   ├── utils/
+│   │   ├── App.vue
+│   │   ├── main.js
+│   ├── public/
+│   ├── package.json
+│   └── vite.config.js
+├── db.sql             # MySQL 数据表结构 (示例)
+└── README.md          # 项目说明文档
+```
 
 ---
 
 ## 技术栈
 
-* **核心框架**：Vue3 (Composition API)
-* **构建工具**：Vite
-* **样式库**：Tailwind CSS 3.x
-* **路由管理**：vue-router
-* **数据交互**：RESTful API (fetch)，WebSocket（ws）
+* **前端**：Vue3 + Vite + TailwindCSS 
+* **后端**：C++11/14，手写 HTTP + WebSocket（无第三方框架），AI 对手(极大极小+棋型评估)
+* **数据库**：MySQL 5.7/8.0
 
 ---
 
-## 主要页面与功能模块
+## 功能亮点
 
-### 1. 登录/注册页面
-
-* 路由：`/login`、`/register`
-* 功能：账号注册、登录，输入校验，密码清空提示、登录状态持久化
-
-### 2. 游戏大厅
-
-* 路由：`/lobby`
-* 功能：
-
-  * 显示在线用户、房间列表
-  * 创建/加入/观战房间
-  * 人机对战入口
-  * 支持房间密码
-  * 实时数据刷新（定时/WS推送）
-
-### 3. 游戏房间
-
-* 路由：`/room/:id`
-* 功能：
-
-  * 棋盘绘制与操作（15x15）
-  * 随机分配黑白方
-  * 准备流程、倒计时、认输
-  * 观战模式限制操作
-  * 实时棋局同步与聊天
-  * 对局结束弹窗与房间状态自动同步
+* 实时在线匹配与对战（房间大厅）
+* 支持房间观战、准备、认输等操作
+* 实时房间/大厅聊天
+* 支持人机对战，三种难度（easy/normal/hard）
+* 用户登录注册、房间密码、AI房间不计入房间列表
+* 前端响应式适配、多端可访问
+* 支持 nginx 反向代理生产部署
 
 ---
 
-## 主要技术要点
-
-### REST API 封装
-
-* 全部请求集中在 `src/utils/api.js`
-* 提供 `get(path)`、`post(path, data)` 两个方法，自动拼接服务器地址
-
-### WebSocket 封装
-
-* 单独工具 `src/utils/ws.js`
-* 提供 `connectWS(token)`、`sendWSMsg(type, data)`、`onWSMsg(fn)`、`closeWS()`等方法
-* 所有房间内的棋盘和聊天事件实时同步
-
-### 状态管理
-
-* 使用 localStorage 存储登录用户/Token信息
-* 页面内用 `ref` 管理响应式数据
-
-### 样式与UI
-
-* 使用 Tailwind 设计现代化风格，整体简洁美观
-* 所有页面自适应、无图片依赖、支持动画
+## 部分UI截图
 
 ---
 
-## 运行与部署
+![登录界面](vx_images/175742799683139.png)
 
-1. **依赖安装**
+--- 
 
-   ```
-   npm install
-   ```
+![游戏大厅界面](vx_images/302403798965472.png)
 
-2. **开发模式运行**
+--- 
 
-   ```
-   npm run dev
-   ```
+![人机对战选择难度](vx_images/229504453145557.png)
 
-3. **生产打包**
+--- 
 
-   ```
-   npm run build
-   ```
+![游戏对局界面](vx_images/300916195856693.png)
 
-   将 `dist/` 下内容部署到任意静态服务器（Nginx/Apache）
-
-4. **环境变量配置**
-
-   * 如需自定义 API 地址，可在 `.env` 配置 `VITE_API_URL`
-
----
-
-## 数据与交互流程说明
-
-* 登录注册 → 进入大厅 → 获取房间/用户数据（REST） → 加入房间 → 连接 WebSocket（房间内全部交互走ws）→ 离开房间/认输/聊天 → 退出登录（REST+ws）
+--- 
 
 
+## 1. 数据库设计
 
-# 后端接口文档（REST + WebSocket）
-
-以下为推荐/标准的后端接口及ws消息格式，请根据实际代码适配：
-
----
-
-## 一、RESTful API 设计
-
-### 1. 用户登录/注册/登出
-
-* **POST /api/auth/register**
-
-  * `body`：{ username, password, email }
-  * `response`：{ success, message }
-
-* **POST /api/auth/login**
-
-  * `body`：{ username, password }
-  * `response`：{ success, user, token, message }
-
-    * token 用于ws/jwt校验
-
-* **POST /api/auth/logout**
-
-  * `body`：{ username }
-  * `response`：{ success }
-
----
-
-### 2. 用户/房间信息
-
-* **GET /api/users/online**
-
-  * `response`：{ users: \[用户名1, 用户名2, ...] }
-
-* **GET /api/rooms**
-
-  * `response`：{ rooms: \[{ id, name, playerCount, hasPassword, status }] }
-
-    * status: "waiting" | "full" | "playing"
-
----
-
-### 3. 房间管理
-
-* **POST /api/rooms/create**
-
-  * `body`：{ name, password? }
-  * `response`：{ success, room: { id, name, ... }, message }
-
-* **POST /api/rooms/join**
-
-  * `body`：{ roomId, password? }
-  * `response`：{ success, message }
-
-* **POST /api/rooms/leave**
-
-  * `body`：{ roomId }
-  * `response`：{ success }
-
----
-
-## 二、WebSocket 消息协议
-
-### 1. 通信说明
-
-* 客户端连接：`ws://server:5555/ws?token=xxx`
-* 通信全为 JSON 格式
-* 连接后，客户端必须发送 `join_room` 消息（roomId+是否观战）
-
----
-
-### 2. 客户端 → 服务端 消息
-
-| type        | 必选字段             | 说明      |
-| ----------- | ---------------- | ------- |
-| join\_room  | roomId, spectate | 加入房间/观战 |
-| chess\_move | roomId, x, y     | 落子请求    |
-| ready       | roomId           | 玩家准备    |
-| giveup      | roomId           | 认输      |
-| leave\_room | roomId           | 离开房间    |
-| chat        | roomId, text     | 聊天消息    |
-| timeout     | roomId           | 超时动作    |
-
----
-
-### 3. 服务端 → 客户端 消息
-
-| type        | 字段（示例）                                                                   | 说明           |
-| ----------- | ------------------------------------------------------------------------ | ------------ |
-| room\_info  | black, white, currentUser, currentColor, board, started, over, resultMsg | 房间/棋盘初始化/同步  |
-| chess\_move | x, y, color, nextColor, nextUser                                         | 某玩家落子        |
-| chat        | user, text, time                                                         | 聊天内容         |
-| ready       | started                                                                  | 玩家准备，游戏是否已开始 |
-| game\_over  | resultMsg                                                                | 游戏结束，胜负原因/说明 |
-| user\_join  | user                                                                     | 用户加入房间       |
-| user\_leave | user                                                                     | 用户离开房间       |
-| giveup      | loser, winner                                                            | 有玩家认输        |
-| timeout     | user                                                                     | 有玩家超时        |
-
----
-
-### 4. 通用约定
-
-* 连接ws时带上token，后端校验身份
-* 客户端状态仅做展示，所有棋盘判定与房间/胜负权威状态由服务端广播
-* 聊天、棋局、房间人员变化均有对应消息实时同步
-
----
-
-## 三、典型交互流程举例
-
-1. **用户A登录**（REST），进入大厅，拉取房间/用户列表（REST）
-2. **用户A点击加入房间**（REST），跳转房间页面，连接ws，发送`join_room`
-3. **房间信息初始化**（ws服务端推送`room_info`），前端渲染棋盘与状态
-4. **用户A点“准备”**，发`ready`，所有人都准备服务端推送`room_info`及状态
-5. **轮到用户A下棋**，点击棋盘，发`chess_move`，服务端判定后广播`chess_move`
-6. **有人发言**，发`chat`，服务端推送所有人`chat`
-7. **有人认输/超时/胜负/离开房间**，均发消息，服务端统一广播相关状态
----
-
-# 数据库设计
-
-## 一、表结构设计
-
----
+### 1.1 表结构（示例）
 
 ### 1. 用户表（users）
 
@@ -299,82 +145,174 @@
 
 ### 5. 聊天/消息表（room\_messages）
 
-| 字段名      | 类型           | 主键 | 约束              | 说明     |
-| -------- | ------------ | -- | --------------- | ------ |
-| id       | INT          | √  | AUTO\_INCREMENT | 自增ID   |
-| room\_id | INT          |    | NOT NULL        | 房间ID   |
-| user\_id | INT          |    | NOT NULL        | 发送用户ID |
-| content  | VARCHAR(512) |    | NOT NULL        | 消息内容   |
-| sent\_at | DATETIME     |    |                 | 发送时间   |
+|  字段名   |     类型      | 主键 |       约束       |    说明    |
+| -------- | ------------ | ---- | --------------- | ---------- |
+| id       | INT          | √    | AUTO\_INCREMENT | 自增ID     |
+| room\_id | INT          |      | NOT NULL        | 房间ID     |
+| user\_id | INT          |      | NOT NULL        | 发送用户ID |
+| content  | VARCHAR(512) |      | NOT NULL        | 消息内容   |
+| sent\_at | DATETIME     |      |                 | 发送时间   |
+
+
+> AI房间不入库，使用内存管理。
+>有部分表未使用到，但是留出了接口
+### 1.2 初始化
+
+1. 创建数据库并导入以上表结构。
+2. 修改后端 `db/dbconn.h` 里的数据库连接信息为你的实际参数。
 
 ---
 
-## 二、建表SQL示例
+## 2. 后端部署与启动
 
-```sql
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(32) UNIQUE,
-    password VARCHAR(64) NOT NULL,
-    email VARCHAR(64),
-    token VARCHAR(64),
-    is_online TINYINT(1) DEFAULT 0,
-    last_login DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+### 2.1 编译环境
 
-CREATE TABLE rooms (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(32) NOT NULL,
-    password VARCHAR(64),
-    status ENUM('waiting','playing','full') DEFAULT 'waiting',
-    created_by INT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+* Ubuntu 20.04/22.04 推荐
+* g++ ≥ 7.5（需支持 C++11/14）
+* 安装依赖：
 
-CREATE TABLE room_members (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    room_id INT NOT NULL,
-    user_id INT NOT NULL,
-    role ENUM('black','white','spectator') DEFAULT 'spectator',
-    ready TINYINT(1) DEFAULT 0,
-    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX(room_id),
-    INDEX(user_id)
-);
+  ```bash
+  sudo apt-get update
+  sudo apt-get install build-essential libmysqlclient-dev cmake
+  ```
 
-CREATE TABLE games (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    room_id INT NOT NULL,
-    black_user INT NOT NULL,
-    white_user INT NOT NULL,
-    winner INT,
-    reason VARCHAR(32),
-    moves TEXT,
-    started_at DATETIME,
-    ended_at DATETIME
-);
+### 2.2 编译后端
 
-CREATE TABLE room_messages (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    room_id INT NOT NULL,
-    user_id INT NOT NULL,
-    content VARCHAR(512) NOT NULL,
-    sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX(room_id),
-    INDEX(user_id)
-);
+```bash
+cd backend/
+mkdir build && cd build
+cmake ..
+make -j
+# 生成 ./gobang_server
+```
+
+### 2.3 启动服务
+
+```bash
+# 启动 HTTP 服务（默认 5555）和 WebSocket 服务（默认 5566）
+./gobang_server
+```
+
+* 推荐用 `nohup ./gobang_server &` 或 `systemctl` 持久化运行
+
+---
+
+## 3. 前端部署与打包
+
+### 3.1 安装依赖
+
+```bash
+cd frontend/
+npm install
+```
+
+### 3.2 本地开发
+
+```bash
+npm run dev
+# 默认 http://localhost:5173
+```
+
+### 3.3 构建发布版
+
+```bash
+npm run build
+# 生成 dist/ 静态资源
+```
+
+### 3.4 生产部署（Nginx 推荐配置）
+
+将 `dist/` 目录部署到服务器如 `/var/www/gobang/dist`，nginx 配置如下：
+
+```nginx
+server {
+    listen 80;
+    server_name 你的服务器IP或域名;
+
+    root /var/www/gobang/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:5555;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+    location /ws/ {
+        proxy_pass http://127.0.0.1:5566;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+    }
+}
+```
+
+**重载 nginx：**
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
 ```
 
 ---
 
-## 三、设计说明
+## 4. 主要交互流程
 
-* 用户在线状态、token仅作为简单标记，实际应配合后端session或websocket维护。
-* 棋谱存储（games.moves）：建议用JSON数组，格式如：`[{"x":7,"y":7,"color":"black"},{"x":8,"y":7,"color":"white"}, ...]`。
-* 对局历史与房间分离，便于日后查询和复盘。
-* 聊天消息/对局/成员都可随房间id快速检索。
-* 观战、准备状态全部在room\_members表维护。
+### 4.1 用户登录/注册
+
+* `/api/auth/login`  `/api/auth/register`
+* 前端页面通过 axios 发送请求，后端验证密码、生成 token。
+
+### 4.2 房间大厅/在线列表
+
+* `/api/rooms` 获取房间列表
+* `/api/users/online` 获取在线用户
+
+### 4.3 房间操作
+
+* `/api/rooms` POST 创建房间
+* `/api/rooms/join` 加入房间
+* `/api/rooms/bot` 创建AI房间（参数：user\_id, level）
+
+### 4.4 实时对战通信（WebSocket）
+
+* 连接：`ws://服务器:5566/ws?token=xxx`
+* 消息协议（JSON）：
+
+  * join\_room, ready, chess\_move, chat, giveup, leave\_room
+  * 具体格式见 `/frontend/src/utils/ws.js` 与后端 websocket\_server.cpp
+
+---
+
+## 5. AI算法说明
+
+* AI采用极大极小+alpha-beta剪枝+棋型评估
+* 三种难度对应不同搜索深度及候选扩展数量
+* 支持识别多种棋型（五连、活四、冲四、活三、眠三、跳活三等）
+* AI房间仅存在于内存，退出即销毁
+
+---
+
+## 6. 常见问题与排查
+
+* 403 Forbidden：检查 nginx root 路径和文件权限
+* 500 Internal Server Error：后端异常，检查后端日志
+* WebSocket无法连接：防火墙/端口未开/配置错误
+* 用户离开房间数据未清理：前端需发送 websocket 的 leave\_room，同时建议补充 http 的退出房间接口，后端统一清理
+
+---
+
+## 7. 其他说明
+
+* 本项目所有代码均开源、易于拓展，支持接入更多AI策略和前端美化
+* 项目已适配多浏览器，推荐使用 Chrome/Edge 最新版
+* **建议：** 保持前后端 token 校验逻辑一致，生产环境下 token 建议增加时效性和加密处理
+
+---
 
 

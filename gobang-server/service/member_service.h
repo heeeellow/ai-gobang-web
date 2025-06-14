@@ -50,13 +50,13 @@ public:
         return RoomMember(std::stoi(r[0]), std::stoi(r[1]), std::stoi(r[2]), r[3], r[4] == "1", r[5]);
     }
         // 在 RoomMemberService 中添加
-int count_players(int room_id) {
+    int count_players(int room_id) {
     // 只统计黑白方（观战不算）
     auto rows = db_.query("SELECT COUNT(*) FROM room_members WHERE room_id=" + std::to_string(room_id) +
                           " AND (role='black' OR role='white')");
     if (!rows.empty()) return std::stoi(rows[0][0]);
     return 0;
-}
+    }
 
     // 删除房间所有成员
     void remove_all(int room_id) {

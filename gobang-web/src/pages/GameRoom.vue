@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen flex flex-col items-center bg-gradient-to-b from-yellow-100 to-yellow-300 relative">
-    <!-- 顶部信息 -->
+    <!-- 顶部玩家信息 -->
     <div class="z-10 w-full max-w-3xl flex flex-row justify-between items-center py-6 px-2 md:px-8">
       <div>
         <span class="font-bold text-xl text-yellow-800">黑方：</span>
@@ -12,11 +12,10 @@
       </div>
       <div v-if="isSpectator" class="text-blue-600 font-bold">观战中</div>
     </div>
-    
-    <!-- 棋盘+侧栏 -->
+    <!-- 棋盘与侧栏 -->
     <div class="z-10 pt-24 w-full max-w-5xl flex flex-col md:flex-row gap-8 items-start justify-center">
       <!-- 聊天区 -->
-      <div class="flex flex-col bg-white/80 rounded-xl shadow p-2 mt-4 h-72 w-full">
+      <div class="flex flex-col bg-white/80 rounded-xl shadow p-2 mt-4 h-72 w-full md:w-[260px]">
         <div class="font-bold mb-1 text-yellow-700">房间聊天</div>
         <div ref="chatListRef" class="flex-1 overflow-y-auto space-y-1 p-1 border rounded bg-white/60">
           <div v-for="(msg, idx) in chatMessages" :key="idx" class="text-sm">
@@ -142,6 +141,7 @@
     </div>
   </div>
 </template>
+
 
 <script setup>
 import { nextTick, ref, computed, onMounted, onUnmounted } from 'vue'

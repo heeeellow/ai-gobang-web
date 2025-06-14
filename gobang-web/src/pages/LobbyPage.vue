@@ -1,26 +1,25 @@
- <template>
+<template>
   <div class="min-h-screen bg-gradient-to-b from-yellow-100 to-yellow-300 flex flex-col items-center relative">
     <!-- 背景大标题 -->
-    <div class="absolute top-24 left-1/2 -translate-x-1/2 select-none pointer-events-none">
-      <span class="text-5xl md:text-7xl font-extrabold text-yellow-400 drop-shadow-lg tracking-widest">游戏大厅</span>
+    <div class="absolute top-16 xs:top-24 left-1/2 -translate-x-1/2 select-none pointer-events-none z-0 w-full flex justify-center">
+      <span class="text-3xl xs:text-5xl md:text-7xl font-extrabold text-yellow-400 drop-shadow-lg tracking-widest whitespace-nowrap">游戏大厅</span>
     </div>
     <!-- 顶部栏 -->
-    <div class="w-full flex justify-between items-center px-8 py-6">
+    <div class="w-full flex justify-between items-center px-4 md:px-8 py-6 z-10">
       <span class="text-lg md:text-2xl font-bold text-yellow-800">欢迎，{{ currentUser?.username || '游客' }}</span>
       <button class="btn-yellow" @click="handleLogout">退出登录</button>
     </div>
+    <!-- 内容区 -->
     <div class="w-full max-w-6xl pt-24 grid grid-cols-1 md:grid-cols-2 gap-8 mt-6 z-10">
       <!-- 房间列表 -->
       <div class="bg-white/90 rounded-2xl shadow-lg p-6">
-      <div class="flex justify-between items-center mb-4">
-  <h2 class="text-2xl font-bold text-yellow-800">当前房间</h2>
-  <div class="flex gap-2">
-    <button class="btn-green" @click="showCreateRoom = true">创建房间</button>
-   
-    <button class="btn-yellow" @click="showBotDialog = true">人机对战</button>
-  </div>
-</div>
-
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-2xl font-bold text-yellow-800">当前房间</h2>
+          <div class="flex gap-2">
+            <button class="btn-green" @click="showCreateRoom = true">创建房间</button>
+            <button class="btn-yellow" @click="showBotDialog = true">人机对战</button>
+          </div>
+        </div>
         <div v-for="room in rooms" :key="room.id" class="mb-4 last:mb-0">
           <div class="flex items-center gap-4 p-4 bg-yellow-50 rounded-xl shadow-sm">
             <span class="font-bold text-lg">{{ room.name }}</span>
@@ -31,6 +30,7 @@
               加入
             </button>
             <button v-else class="btn-gray ml-auto" @click="watchRoom(room)">观战</button>
+            
           </div>
         </div>
       </div>
@@ -38,15 +38,12 @@
       <div class="bg-white/90 rounded-2xl shadow-lg p-6">
         <h2 class="text-2xl font-bold text-yellow-800 mb-4">在线用户</h2>
         <div class="flex flex-wrap gap-3">
-          <span v-for="user in onlineUsers" :key="user" class="px-3 py-1 rounded-lg bg-yellow-200 text-yellow-900 font-medium shadow-sm">
+          <span v-for="user in onlineUsers" :key="user.username" class="px-3 py-1 rounded-lg bg-yellow-200 text-yellow-900 font-medium shadow-sm">
             {{ user.username }}
           </span>
         </div>
-      
-       
       </div>
     </div>
-
     <!-- 创建房间弹窗 -->
     <div v-if="showCreateRoom" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div class="bg-white rounded-2xl p-8 shadow-xl w-full max-w-sm flex flex-col gap-4">
@@ -64,31 +61,32 @@
         <p v-if="createError" class="text-red-600 text-sm">{{ createError }}</p>
       </div>
     </div>
-  </div>
-  <!-- 人机对战难度选择弹窗 -->
-<div v-if="showBotDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-  <div class="bg-white rounded-2xl p-8 shadow-xl w-full max-w-sm flex flex-col gap-6">
-    <h3 class="text-xl font-bold text-yellow-700 mb-2">选择人机对战难度</h3>
-    <div class="flex flex-col gap-2">
-      <label>
-        <input type="radio" v-model="botLevel" value="easy" /> 简单
-      </label>
-      <label>
-        <input type="radio" v-model="botLevel" value="normal" /> 中等
-      </label>
-      <label>
-        <input type="radio" v-model="botLevel" value="hard" /> 困难
-      </label>
+    <!-- 人机对战难度选择弹窗 -->
+    <div v-if="showBotDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div class="bg-white rounded-2xl p-8 shadow-xl w-full max-w-sm flex flex-col gap-6">
+        <h3 class="text-xl font-bold text-yellow-700 mb-2">选择人机对战难度</h3>
+        <div class="flex flex-col gap-2">
+          <label>
+            <input type="radio" v-model="botLevel" value="easy" /> 简单
+          </label>
+          <label>
+            <input type="radio" v-model="botLevel" value="normal" /> 中等
+          </label>
+          <label>
+            <input type="radio" v-model="botLevel" value="hard" /> 困难
+          </label>
+        </div>
+        <div class="flex gap-2 mt-4">
+          <button class="btn-yellow flex-1" @click="createBotRoom">确定</button>
+          <button class="btn-gray flex-1" @click="showBotDialog = false">取消</button>
+        </div>
+        <p v-if="botError" class="text-red-600 text-sm">{{ botError }}</p>
+      </div>
     </div>
-    <div class="flex gap-2 mt-4">
-      <button class="btn-yellow flex-1" @click="createBotRoom">确定</button>
-      <button class="btn-gray flex-1" @click="showBotDialog = false">取消</button>
-    </div>
-    <p v-if="botError" class="text-red-600 text-sm">{{ botError }}</p>
   </div>
-</div>
-
 </template>
+
+
 
 <script setup>
 

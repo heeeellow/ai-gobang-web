@@ -28,7 +28,7 @@ void WebSocketServer::server_loop() {
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port_);
     bind(listen_fd, (sockaddr*)&addr, sizeof(addr));
-    listen(listen_fd, 32);
+    //listen(listen_fd, 32);
 if (listen(listen_fd, 32) < 0) {
     std::cerr << "[WS] listen() failed!\n";
     close(listen_fd);
