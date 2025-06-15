@@ -44,8 +44,8 @@ ai-gobang-web/
 ## 技术栈
 
 * **前端**：Vue3 + Vite + TailwindCSS 
-* **后端**：C++11/14，手写 HTTP + WebSocket（无第三方框架），AI 对手(极大极小+棋型评估)
-* **数据库**：MySQL 5.7/8.0
+* **后端**：C++11/14，手写 HTTP + WebSocket（无第三方框架），AI 对手(极大极小+alpha-beta剪枝+棋型评估)
+* **数据库**：MySQL 8.0
 
 ---
 
@@ -288,7 +288,7 @@ sudo systemctl reload nginx
 * 消息协议（JSON）：
 
   * join\_room, ready, chess\_move, chat, giveup, leave\_room
-  * 具体格式见 `/frontend/src/utils/ws.js` 与后端 websocket\_server.cpp
+  * 具体格式见 `/gobang-web/src/utils/ws.js` 与后端 websocket\_server.cpp
 
 ---
 
