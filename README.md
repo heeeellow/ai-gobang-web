@@ -33,7 +33,10 @@ ai-gobang-web/
 │   ├── package.json
 │   └── vite.config.js
 ├── db.sql             # MySQL 数据表结构 (示例)
+├── vx_images          # 部分UI截图
 └── README.md          # 项目说明文档
+
+
 ```
 
 ---
