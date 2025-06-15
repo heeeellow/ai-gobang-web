@@ -1,6 +1,7 @@
 #pragma once
 #include "../db/dbconn.h"
 #include "../service/user_service.h"
+#include "../utils/safe_utils.h"        // NEW
 #include "gobang/GameRoomManager.h"
 #include <thread>
 #include <nlohmann/json.hpp>

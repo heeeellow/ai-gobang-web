@@ -71,33 +71,36 @@ bool websocket_handshake(int fd) {
 
 // 读取一个WebSocket帧文本消息
 bool ws_recv_text(int fd, std::string& out) {
-    unsigned char header[2];
-    int n = recv(fd, header, 2, MSG_WAITALL);
-    if (n != 2) return false;
-    bool fin = (header[0] & 0x80) != 0;
-    int opcode = header[0] & 0x0F;
-    int mask = (header[1] & 0x80) != 0;
-    uint64_t payload_len = header[1] & 0x7F;
-    if (payload_len == 126) {
-        unsigned char ext[2];
-        recv(fd, ext, 2, MSG_WAITALL);
-        payload_len = (ext[0] << 8) | ext[1];
-    } else if (payload_len == 127) {
-        unsigned char ext[8];
-        recv(fd, ext, 8, MSG_WAITALL);
-        payload_len = 0;
-        for (int i = 0; i < 8; ++i) payload_len = (payload_len << 8) | ext[i];
+    unsigned char hdr[2];
+    if (recv(fd, hdr, 2, MSG_WAITALL) != 2) return false;
+    bool fin   = hdr[0] & 0x80;
+    int opcode = hdr[0] & 0x0F;
+    bool mask  = hdr[1] & 0x80;
+    uint64_t len = hdr[1] & 0x7F;
+
+    if (opcode == 8) return false;           // close 帧：告知上层正常关闭
+    if (opcode == 9) {                       // ping ➜ pong
+        ws_send_text(fd, "");                // 简易 pong
+        return true;
     }
-    unsigned char mask_key[4] = {0,0,0,0};
-    if (mask) recv(fd, mask_key, 4, MSG_WAITALL);
-    std::vector<unsigned char> payload(payload_len);
-    if (payload_len)
-        recv(fd, payload.data(), payload_len, MSG_WAITALL);
-    for (uint64_t i = 0; i < payload_len; ++i)
-        if (mask) payload[i] ^= mask_key[i % 4];
-    out.assign((char*)payload.data(), payload_len);
-    return opcode == 1; // 只接受文本帧
+    if (opcode != 1) return true;            // 非文本帧直接忽略
+
+    if (len == 126) { unsigned char ext[2];  recv(fd, ext, 2, MSG_WAITALL); len = (ext[0] << 8) | ext[1]; }
+    else if (len == 127) {
+        unsigned char ext[8]; recv(fd, ext, 8, MSG_WAITALL);
+        len = 0; for (int i = 0; i < 8; ++i) len = (len << 8) | ext[i];
+    }
+    unsigned char mkey[4] = {};
+    if (mask) recv(fd, mkey, 4, MSG_WAITALL);
+
+    std::vector<unsigned char> payload(len);
+    if (len) recv(fd, payload.data(), len, MSG_WAITALL);
+    if (mask) for (uint64_t i = 0; i < len; ++i) payload[i] ^= mkey[i % 4];
+
+    out.assign(reinterpret_cast<char*>(payload.data()), len);
+    return true;                             // 对文本/控制帧均返回 true，交由上层决定
 }
+
 
 // 发送一个文本消息
 bool ws_send_text(int fd, const std::string& text) {

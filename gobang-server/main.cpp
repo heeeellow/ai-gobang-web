@@ -14,11 +14,7 @@ void sigint_handler(int) {
 }
 
 int main() {
-         auto t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-     std::stringstream ss;
-     ss << std::put_time(std::localtime(&t), "%H:%M:%S");
-     std::string str_time = ss.str();
-    Logger::info(str_time);
+
  DBConn db("1.95.61.131", "root", "Yy2661320808@!", "GoBang", 3306);
     HttpServer http(db, 5555, room_mgr);
     WebSocketServer ws(db, 5566, room_mgr);

@@ -52,44 +52,62 @@ void HttpServer::run() {
 }
 
 void HttpServer::handle_connection(int connfd) {
-    char buf[8192];
-    int n = read(connfd, buf, sizeof(buf)-1);
-    if (n <= 0) { close(connfd); return; }
-    buf[n] = 0;
-    std::string req(buf);
+    std::string req;
+    char buf[4096];
+    ssize_t n;
 
-    // 解析请求行
-    std::istringstream ss(req);
-    std::string line;
-    std::getline(ss, line);
-    std::string method, path, ver;
-    std::istringstream ls(line);
-    ls >> method >> path >> ver;
-
-    // 预检请求直接回复CORS允许
-    if (method == "OPTIONS") {
-        std::string res_str =
-            "HTTP/1.1 200 OK\r\n"
-            "Access-Control-Allow-Origin: *\r\n"
-            "Access-Control-Allow-Headers: Content-Type\r\n"
-            "Access-Control-Allow-Methods: *\r\n"
-            "Content-Length: 0\r\n"
-            "\r\n";
-        write(connfd, res_str.c_str(), res_str.size());
-        close(connfd);
-        return;
+    /* ===== 1. 先读取 header（含 \r\n\r\n） ===== */
+    while (true) {
+        n = recv(connfd, buf, sizeof(buf), 0);
+        if (n <= 0) { close(connfd); return; }
+        req.append(buf, n);
+        auto pos = req.find("\r\n\r\n");
+        if (pos != std::string::npos) break;           // 头已收全
+        if (req.size() > 64 * 1024) { send_400(connfd, "Header too big"); close(connfd); return; }
     }
 
-    // 找到body
-    std::string body;
-    auto pos = req.find("\r\n\r\n");
-    if (pos != std::string::npos) body = req.substr(pos+4);
+    /* ===== 2. 解析首行 & 头字段 ===== */
+    std::istringstream hs(req.substr(0, req.find("\r\n")));
+    std::string method, path, ver;
+    hs >> method >> path >> ver;
 
-    // 路由分发
+    // CORS 预检
+    if (method == "OPTIONS") {
+        std::string res =
+            "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin: *\r\n"
+            "Access-Control-Allow-Headers: Content-Type\r\n"
+            "Access-Control-Allow-Methods: *\r\nContent-Length: 0\r\n\r\n";
+        ::send(connfd, res.c_str(), res.size(), 0);
+        close(connfd); return;
+    }
+
+    size_t content_len = 0;
+    {
+        std::istringstream hdrs(req);
+        std::string line;
+        while (std::getline(hdrs, line) && line != "\r") {
+            if (line.rfind("Content-Length:", 0) == 0) {
+                content_len = std::stoul(line.substr(15));
+            }
+        }
+    }
+
+    /* ===== 3. 若 body 未收完，继续补读 ===== */
+    std::string body;
+    size_t hdr_end = req.find("\r\n\r\n") + 4;
+    body = req.substr(hdr_end);
+    while (body.size() < content_len) {
+        n = recv(connfd, buf, sizeof(buf), 0);
+        if (n <= 0) { close(connfd); return; }
+        body.append(buf, n);
+    }
+
+    /* ===== 4. 路由分发 ===== */
     handle_api(method, path, body, connfd);
 
     close(connfd);
 }
+
 
 
 // 路由实现：这里只实现登录、注册，后续逐步完善
@@ -103,7 +121,9 @@ void HttpServer::handle_api(const std::string& method, const std::string& path,
 
     // 1. 登录
     if (method == "POST" && path == "/api/auth/login") {
-        nlohmann::json j = nlohmann::json::parse(body);
+      nlohmann::json j;
+if (!safe_json_parse(body, j)) { send_400(connfd, "Malformed JSON"); return; }
+
         std::string err;
         auto token = user_service.login(j["username"], j["password"], err);
         if (token) {
@@ -128,7 +148,9 @@ void HttpServer::handle_api(const std::string& method, const std::string& path,
 
     // 2. 注册
     if (method == "POST" && path == "/api/auth/register") {
-        nlohmann::json j = nlohmann::json::parse(body);
+        nlohmann::json j;
+if (!safe_json_parse(body, j)) { send_400(connfd, "Malformed JSON"); return; }
+
         std::string err;
         bool ok = user_service.register_user(j["username"], j["password"], j["email"], err);
         if (ok) {
@@ -176,7 +198,7 @@ void HttpServer::handle_api(const std::string& method, const std::string& path,
         nlohmann::json arr = nlohmann::json::array();
         for (auto& r : rows) {
             arr.push_back({
-                {"id", std::stoi(r[0])},
+                {"id", safe_to_int(r[0])},
                 {"username", r[1]},
                 {"email", r[2]}
             });
@@ -220,7 +242,9 @@ if (method == "GET" && path == "/api/rooms") {
 
     // 6. 创建房间（POST /api/rooms）
     if (method == "POST" && path == "/api/rooms") {
-        nlohmann::json j = nlohmann::json::parse(body);
+       nlohmann::json j;
+if (!safe_json_parse(body, j)) { send_400(connfd, "Malformed JSON"); return; }
+
         std::string name = j["name"];
         std::string password = j.value("password", "");
         int user_id = j["user_id"];
@@ -239,7 +263,9 @@ if (method == "GET" && path == "/api/rooms") {
 
     //ai rooms
    if (method == "POST" && path == "/api/rooms/bot") {
-    nlohmann::json j = nlohmann::json::parse(body);
+   nlohmann::json j;
+if (!safe_json_parse(body, j)) { send_400(connfd, "Malformed JSON"); return; }
+
     int user_id = j["user_id"];
     std::string level = j.value("level", "easy");
 
@@ -259,7 +285,9 @@ if (method == "GET" && path == "/api/rooms") {
 
     // 7. 加入房间（POST /api/rooms/join）
     if (method == "POST" && path == "/api/rooms/join") {
-        nlohmann::json j = nlohmann::json::parse(body);
+       nlohmann::json j;
+if (!safe_json_parse(body, j)) { send_400(connfd, "Malformed JSON"); return; }
+
         int room_id = j["room_id"];
         int user_id = j["user_id"];
         std::string password = j.value("password", "");
@@ -296,7 +324,9 @@ if (method == "GET" && path == "/api/rooms") {
 
     // 8. 退出房间（POST /api/rooms/leave）
     if (method == "POST" && path == "/api/rooms/leave") {
-        nlohmann::json j = nlohmann::json::parse(body);
+        nlohmann::json j;
+if (!safe_json_parse(body, j)) { send_400(connfd, "Malformed JSON"); return; }
+
         int room_id = j["room_id"];
         int user_id = j["user_id"];
         member_service.leave_room(room_id, user_id);
@@ -308,7 +338,11 @@ if (method == "GET" && path == "/api/rooms") {
     // 9. 房间详情（GET /api/rooms/{id}，且不是messages接口）
     if (method == "GET" && path.find("/api/rooms/") == 0 &&
         path.find("/messages") == std::string::npos) {
-        int room_id = std::stoi(path.substr(std::string("/api/rooms/").length()));
+        int room_id = safe_to_int(path.substr(std::string("/api/rooms/").length()), -1);
+        if (room_id < 0) {             // NEW ── 非法 id 直接返回 400
+            send_400(connfd, "room_id invalid");
+           return;
+        }
         auto room = room_service.get_room(room_id);
         if (!room) {
             res["success"] = false;
@@ -336,7 +370,9 @@ if (method == "GET" && path == "/api/rooms") {
 
     // 10. 设置准备状态（POST /api/rooms/prepare）
     if (method == "POST" && path == "/api/rooms/prepare") {
-        nlohmann::json j = nlohmann::json::parse(body);
+       nlohmann::json j;
+if (!safe_json_parse(body, j)) { send_400(connfd, "Malformed JSON"); return; }
+
         int room_id = j["room_id"];
         int user_id = j["user_id"];
         bool ready = j["ready"];
@@ -348,7 +384,9 @@ if (method == "GET" && path == "/api/rooms") {
 
     // 11. 聊天消息发送（POST /api/rooms/chat）
     if (method == "POST" && path == "/api/rooms/chat") {
-        nlohmann::json j = nlohmann::json::parse(body);
+      nlohmann::json j;
+if (!safe_json_parse(body, j)) { send_400(connfd, "Malformed JSON"); return; }
+
         int room_id = j["room_id"];
         int user_id = j["user_id"];
         std::string content = j["content"];
@@ -364,8 +402,12 @@ if (method == "GET" && path == "/api/rooms") {
         std::string prefix = "/api/rooms/";
         std::string suffix = "/messages";
         int start = prefix.length();
-        int end = path.find(suffix);
-        int room_id = std::stoi(path.substr(start, end - start));
+        int end   = path.find(suffix);
+        int room_id = safe_to_int(path.substr(start, end - start), -1);
+        if (room_id < 0) {             // NEW
+            send_400(connfd, "room_id invalid");
+            return;
+        }
         auto msgs = message_service.list_messages(room_id);
         nlohmann::json arr = nlohmann::json::array();
         for (auto& m : msgs) {
@@ -382,7 +424,9 @@ if (method == "GET" && path == "/api/rooms") {
     }
 
 if (method == "POST" && path == "/api/auth/logout") {
-    nlohmann::json j = nlohmann::json::parse(body);
+    nlohmann::json j;
+if (!safe_json_parse(body, j)) { send_400(connfd, "Malformed JSON"); return; }
+
     std::string username = j["username"];
     user_service.logout(username); // 置 is_online=0、清空token等
     res["success"] = true;
@@ -404,7 +448,8 @@ void HttpServer::send_json(int fd,const nlohmann::json& j){
     oss << "HTTP/1.1 200 OK\r\n"
         << "Content-Type: application/json\r\n"
         << "Content-Length: " << body.size() << "\r\n"
-        << "Connection: keep-alive\r\n"
+        //<< "Connection: keep-alive\r\n"
+        << "Connection: close\r\n"               // NEW
         << "Access-Control-Allow-Origin: *\r\n"
         << "Access-Control-Allow-Headers: Content-Type\r\n"
         << "Access-Control-Allow-Methods: *\r\n\r\n"
